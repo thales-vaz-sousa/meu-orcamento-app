@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import Input from '../components/Input';
-import Button from '../components/Button'; // Garanta que este componente exista
+import Button from '../components/Button';
+import { addExpense } from '../services/dataService'; // Importa a função de salvar no Firestore
+import { useAuth } from '../context/AuthContext'; 
 
 const ExpenseEntry = () => {
+  const { currentUser } = useAuth(); // Para ter acesso ao usuário
   const [file, setFile] = useState(null);
   const [expenseData, setExpenseData] = useState({
     description: '',
@@ -24,21 +27,22 @@ const ExpenseEntry = () => {
     setExpenseData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Funções para lidar com a Extração de Dados por IA (Google Cloud Vision)
   const handleAIScan = async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
 
+    // O Google Cloud Vision não exige mais o pagamento de cota da OpenAI
     try {
         const formData = new FormData();
-        // O nome 'invoice' deve coincidir com o que a Netlify Function espera (invoiceFile = files.invoice)
+        // 'invoice' deve coincidir com o que a Netlify Function espera
         formData.append('invoice', file); 
 
-        // Chamada ao endpoint da Netlify Function
+        // Chamada ao endpoint da Netlify Function (agora com lógica do Google Vision)
         const response = await fetch('/.netlify/functions/analyze-invoice', { 
             method: 'POST', 
             body: formData,
-            // Não defina o Content-Type para multipart/form-data, o navegador faz isso automaticamente
         });
 
         const result = await response.json();
@@ -48,10 +52,11 @@ const ExpenseEntry = () => {
             return;
         }
 
-        // Preenche o formulário com os dados extraídos
+        // Preenche o formulário com os dados extraídos pelo Vision API
         setExpenseData({
           description: result.description || expenseData.description,
-          amount: result.amount ? parseFloat(result.amount.replace('R$', '').replace(',', '.')).toFixed(2) : expenseData.amount,
+          // Garante que o valor é um número formatado para o input type="number"
+          amount: result.amount ? parseFloat(result.amount).toFixed(2) : expenseData.amount,
           date: result.date || expenseData.date,
           category: result.category || expenseData.category,
         });
@@ -66,12 +71,42 @@ const ExpenseEntry = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  // Funções para Salvar a Despesa no Firebase Firestore
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Lógica para salvar a despesa no seu banco de dados (próximo passo)
-    console.log('Despesa a ser salva:', expenseData);
-    alert('Despesa salva (simulação).');
+    setLoading(true);
+    setError(null);
+    
+    // Validação básica
+    if (!expenseData.description || !expenseData.amount || !expenseData.date) {
+        setError("Por favor, preencha todos os campos obrigatórios.");
+        setLoading(false);
+        return;
+    }
+
+    try {
+        // Envia os dados para o Firestore
+        await addExpense(expenseData); 
+        
+        alert('Despesa salva com sucesso!');
+        
+        // Limpa o formulário após salvar
+        setExpenseData({
+            description: '',
+            amount: '',
+            date: '',
+            category: '',
+        });
+        setFile(null); // Limpa o arquivo de fatura
+
+    } catch (err) {
+        console.error('Erro ao salvar despesa:', err);
+        setError(`Falha ao salvar a despesa: ${err.message}`);
+    } finally {
+        setLoading(false);
+    }
   };
+
 
   return (
     <Layout>
@@ -80,10 +115,17 @@ const ExpenseEntry = () => {
           Registrar Nova Despesa
         </h2>
         
+        {/* Exibe o erro geral */}
+        {error && (
+            <div className="bg-danger-red/10 border-l-4 border-danger-red text-danger-red p-3 mb-4 rounded-md">
+                {error}
+            </div>
+        )}
+
         {/* 📸 Seção de Upload com IA */}
         <div className="p-6 mb-6 border-2 border-dashed border-primary-blue/50 rounded-xl bg-primary-blue/5">
           <label className="block text-lg font-semibold text-primary-blue mb-3">
-            Opção Rápida: Analisar Fatura por IA
+            Opção Rápida: Analisar Fatura por OCR
           </label>
           <input 
             type="file" 
@@ -96,16 +138,11 @@ const ExpenseEntry = () => {
             disabled={loading || !file}
             className={`mt-4 w-full ${loading ? 'opacity-60 cursor-not-allowed' : 'bg-success-green hover:bg-green-600'}`}
           >
-            {loading ? 'Analisando Fatura...' : 'Extrair Dados com IA'}
+            {loading ? 'Analisando Fatura...' : 'Extrair Dados com OCR'}
           </Button>
-          {error && (
-            <p className="mt-3 text-sm text-danger-red font-medium">
-                {error}
-            </p>
-          )}
         </div>
 
-        {/* ✍️ Formulário Preenchido (ou manual) */}
+        {/* ✍️ Formulário de Entrada Manual */}
         <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input 
@@ -142,7 +179,7 @@ const ExpenseEntry = () => {
                 />
             </div>
             
-            <Button className="w-full mt-8 bg-primary-blue hover:bg-indigo-700 py-3 rounded-lg text-white font-bold transition">
+            <Button className="w-full mt-8 bg-primary-blue hover:bg-indigo-700 py-3 rounded-lg text-white font-bold transition" type="submit">
               Salvar Despesa
             </Button>
         </form>

@@ -1,109 +1,184 @@
 import React from 'react';
 import Layout from '../components/Layout';
+import useExpenses from '../hooks/useExpenses'; 
+import ExpenseTable from '../components/ExpenseTable'; 
+import ExpensePieChart from '../components/PieChart'; 
+import { useAuth } from '../context/AuthContext';
+import { FaDollarSign, FaMoneyBillWave, FaWallet, FaChartPie, FaRegCreditCard } from 'react-icons/fa';
 
-// Componente para um Card de Estatística Reutilizável
-const StatCard = ({ name, value, colorClass, icon }) => (
-  <div className="p-6 bg-white rounded-xl shadow-custom hover:shadow-lg transition duration-300 border-l-4 border-primary-blue">
-    <div className="flex items-center justify-between">
-      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">{name}</p>
-      <span className={`text-xl ${colorClass}`}>{icon}</span>
-    </div>
-    <p className={`mt-2 text-4xl font-extrabold ${colorClass}`}>{value}</p>
-  </div>
-);
+// Definição de cores (DEVE ser a mesma do PieChart.jsx)
+const COLORS = ['#FF4C6A', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e74c3c'];
 
-// Componente Principal do Dashboard
+
 const Dashboard = () => {
-  // Dados de Exemplo (Em uma aplicação real, viriam de uma API/Contexto)
-  const stats = [
-    { name: 'Saldo Disponível', value: 'R$ 5.450,00', color: 'text-success-green', icon: '✅' },
-    { name: 'Orçamento Restante', value: 'R$ 1.200,00', color: 'text-primary-blue', icon: '⏳' },
-    { name: 'Total de Despesas', value: 'R$ 3.800,00', color: 'text-danger-red', icon: '🔻' },
-  ];
-
-  // Dados de Exemplo para o Histórico/Transações Recentes
-  const recentTransactions = [
-    { id: 1, description: 'Mensalidade Academia', amount: -120.00, date: '14/12/2025', type: 'Despesa' },
-    { id: 2, description: 'Salário (Dezembro)', amount: 6000.00, date: '05/12/2025', type: 'Receita' },
-    { id: 3, description: 'Compra Supermercado', amount: -450.75, date: '01/12/2025', type: 'Despesa' },
-  ];
+  const { currentUser } = useAuth();
   
-  // Função auxiliar para determinar a cor do texto na tabela
-  const getAmountColor = (amount) => {
-    return amount > 0 ? 'text-success-green' : 'text-danger-red';
+  const { 
+    expenses, 
+    loading, 
+    error, 
+    monthlyExpenses, 
+    remainingBudget,
+    totalIncomes, 
+    totalBalance,
+    expensesByCategory, 
+    fetchExpensesAndBudgets
+  } = useExpenses(); 
+  
+  const displayName = currentUser?.email.split('@')[0] || 'Usuário';
+
+  const formatCurrency = (amount) => {
+    const num = parseFloat(amount); 
+    if (isNaN(num)) return 'R$ 0,00';
+    
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(num);
   };
+
+  const getRemainingColor = (amount) => {
+    // Usando classes Padrões Tailwind
+    return amount >= 0 ? 'text-green-600' : 'text-red-600';
+  };
+
+  const getBalanceColor = (amount) => {
+    // Usando classes Padrões Tailwind
+    return amount >= 0 ? 'text-green-600' : 'text-red-600';
+  };
+    
+  // Dados dos cartões de resumo
+  const summaryCards = [
+    {
+      title: "Saldo Total",
+      value: totalBalance,
+      color: getBalanceColor(totalBalance),
+      icon: FaWallet,
+      borderColor: 'border-green-500',
+    },
+    {
+      title: "Receitas Acumuladas",
+      value: totalIncomes,
+      color: 'text-indigo-600',
+      icon: FaMoneyBillWave,
+      borderColor: 'border-indigo-500',
+    },
+    {
+      title: "Despesas do Mês",
+      value: monthlyExpenses * -1, 
+      color: 'text-red-600',
+      icon: FaRegCreditCard,
+      borderColor: 'border-red-500',
+    },
+    {
+      title: "Orçamento Restante",
+      value: remainingBudget,
+      color: getRemainingColor(remainingBudget),
+      icon: FaDollarSign,
+      borderColor: 'border-blue-500', 
+    },
+  ];
 
   return (
     <Layout>
-      <h1 className="text-4xl font-extrabold text-text-dark mb-8">
-        Visão Geral do Mês 👋
-      </h1>
+      {/* Container principal com fundo CLARO (gray-50) e espaçamento */}
+      <div className="p-10 bg-gray-50 min-h-screen"> 
+        <header className="mb-10">
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+                👋 Olá, {displayName}!
+            </h1>
+            <p className="text-lg text-gray-600">
+                Visão geral rápida de suas finanças.
+            </p>
+        </header>
 
-      {/* 📊 Seção de Cards de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        {stats.map((stat) => (
-          <StatCard 
-            key={stat.name}
-            name={stat.name}
-            value={stat.value}
-            colorClass={stat.color}
-            icon={stat.icon}
-          />
-        ))}
-      </div>
-      
-      {/* 📈 Seção de Gráficos (Inovador e Moderno) */}
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 mb-10">
-          <h3 className="text-2xl font-bold text-text-dark mb-4 border-b pb-2">
-              Progresso do Orçamento (Dezembro)
-          </h3>
-          <div className="h-80 flex items-center justify-center bg-secondary-gray/30 rounded-lg">
-             {/* Aqui entraria o GRÁFICO (usando uma biblioteca como Recharts ou Chart.js).
-               Ele mostraria visualmente o quanto foi gasto em relação ao orçamento. 
-             */}
-             <p className="text-gray-500 italic">
-                Espaço para Gráfico de Despesas por Categoria ou Fluxo de Caixa.
-             </p>
-          </div>
-      </div>
-      
-      {/* 🧾 Histórico de Transações Recentes */}
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-        <h3 className="text-2xl font-bold text-text-dark mb-6 border-b pb-2">
-            Transações Recentes
-        </h3>
-        
-        {/* Tabela Clean e Minimalista */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-secondary-gray">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentTransactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-gray-50 transition duration-100">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-dark">{tx.description}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${tx.type === 'Receita' ? 'bg-success-green/20 text-success-green' : 'bg-danger-red/20 text-danger-red'}`}>
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold text-right ${getAmountColor(tx.amount)}`}>
-                    {tx.amount < 0 ? `- R$ ${Math.abs(tx.amount).toFixed(2).replace('.', ',')}` : `+ R$ ${tx.amount.toFixed(2).replace('.', ',')}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* --- Cartões de Resumo (Layout 4 colunas com GRID) --- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {summaryCards.map((card, index) => (
+            <div 
+                key={index}
+                className={`p-6 bg-white border border-gray-200 rounded-xl shadow-lg transition-transform hover:shadow-xl transform hover:scale-[1.02] border-l-4 ${card.borderColor}`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <p className="text-sm font-medium text-gray-500">{card.title}</p>
+                <card.icon className={`w-6 h-6 ${card.color}`} />
+              </div>
+              <p className={`text-3xl font-bold ${card.color} mt-1`}>
+                {loading ? '...' : formatCurrency(card.value)}
+              </p>
+            </div>
+          ))}
         </div>
+
+        {/* --- Layout de Duas Colunas (Gráfico + Tabela com GRID) --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            
+            {/* Coluna 1: Gráfico de Pizza (Ocupa 2/5) */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200 flex items-center space-x-2">
+                    <FaChartPie className="w-5 h-5 text-blue-600" />
+                    <span>Distribuição de Despesas</span>
+                </h2>
+                
+                {loading ? (
+                    <div className="p-20 text-center text-blue-600">Carregando dados...</div>
+                ) : (
+                    <>
+                        <ExpensePieChart data={expensesByCategory} />
+                        
+                        {/* Legenda colorida com bom contraste */}
+                        {expensesByCategory.length > 0 && (
+                            <div className="mt-4 text-sm space-y-2 max-h-40 overflow-y-auto pr-2">
+                                {expensesByCategory.map((item, index) => (
+                                    <div key={item.name} className="flex justify-between items-center text-gray-700 border-b border-gray-100 last:border-b-0 pb-1">
+                                        <div className="flex items-center space-x-2">
+                                            <div style={{ backgroundColor: COLORS[index % COLORS.length] }} className="w-3 h-3 rounded-full shadow-md"></div>
+                                            <span className="font-semibold">{item.name}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="font-bold">{item.percent}%</span>
+                                            <span className="text-xs ml-2 text-gray-500">({formatCurrency(item.value)})</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                         {/* Mensagem de fallback para quando não há dados */}
+                        {expensesByCategory.length === 0 && (
+                            <div className="text-center p-10 text-gray-500">
+                                Nenhuma despesa registrada para o cálculo do gráfico.
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Coluna 2: Histórico Recente de Despesas (Ocupa 3/5) */}
+            <div className="lg:col-span-3">
+                 <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                    Histórico Recente
+                 </h2>
+                
+                {loading && (
+                    <div className="text-center p-10 bg-white rounded-xl shadow-lg border border-gray-200">
+                        <p className="text-lg text-blue-600">Carregando tabela...</p>
+                    </div>
+                )}
+                
+                {error && (
+                    <div className="text-center p-5 bg-red-100 text-red-600 border border-red-300 rounded">
+                        <p>{error}</p>
+                    </div>
+                )}
+                
+                {!loading && !error && (
+                    // O ExpenseTable pode precisar de estilo adicional para o tema claro, mas vamos manter por enquanto
+                    <ExpenseTable expenses={expenses} onExpenseChange={fetchExpensesAndBudgets} /> 
+                )}
+            </div>
+        </div>
+        
       </div>
-      
     </Layout>
   );
 };

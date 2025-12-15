@@ -1,28 +1,83 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext'; 
+
+// --- Páginas do Aplicativo ---
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import ExpenseEntry from './pages/ExpenseEntry';
-// Importe as outras telas quando as criar (Register, Budget, Reports)
+import Register from './pages/Register';
+import ExpenseEntry from './pages/ExpenseEntry'; // ⚠️ CORRIGIDO: Assumindo o nome ExpenseEntry
+import IncomeRegister from './pages/IncomeRegister';
+import Orcamentos from './pages/Orcamentos'; // ⚠️ CORRIGIDO: Assumindo o nome Orcamentos
 
+
+// Componente de Rota Protegida (Protege rotas que exigem login)
+const ProtectedRoute = ({ children }) => {
+    const { currentUser, loading } = useAuth();
+    
+    if (loading) {
+        return <div className="flex items-center justify-center h-screen text-primary-blue text-xl">Carregando...</div>;
+    }
+    
+    if (!currentUser) {
+        return <Navigate to="/login" replace />;
+    }
+    
+    return children;
+};
+
+// Componente principal
 function App() {
   return (
-    // O Router engloba toda a aplicação
     <Router>
-      <Routes>
-        {/* Rota para as telas de Autenticação */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<p>Tela de Cadastro (A ser implementada)</p>} />
-        
-        {/* Rota Protegida (Idealmente, você verificaria se o usuário está logado aqui) */}
-        <Route path="/" element={<Dashboard />} /> {/* Rota inicial após login */}
-        <Route path="/despesa/nova" element={<ExpenseEntry />} />
-        {/* Outras Rotas protegidas (Budget Management, Reports, Profile) */}
-        <Route path="/orcamentos" element={<p>Gestão de Orçamentos (A ser implementada)</p>} />
-        <Route path="/relatorios" element={<p>Relatórios e Análises (A ser implementada)</p>} />
+        <AuthProvider>
+            <Routes>
+                
+                {/* Rotas Públicas */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-        {/* Rota para Not Found (Opcional) */}
-        <Route path="*" element={<p className="text-center mt-20 text-xl font-bold">404 - Página não encontrada</p>} />
-      </Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+                {/* ---------------------------------------------------- */}
+                {/* Rotas Protegidas */}
+                {/* ---------------------------------------------------- */}
+                
+                <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                        <Dashboard />
+                    </ProtectedRoute>
+                } />
+                
+                <Route path="/registrar-despesa" element={
+                    <ProtectedRoute>
+                        <ExpenseEntry /> {/* ⚠️ CORRIGIDO */}
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/registrar-receita" element={
+                    <ProtectedRoute>
+                        <IncomeRegister />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/orcamentos" element={
+                    <ProtectedRoute>
+                        <Orcamentos /> {/* ⚠️ CORRIGIDO */}
+                    </ProtectedRoute>
+                } />
+                
+                <Route path="*" element={
+                    <div className="flex flex-col items-center justify-center h-screen">
+                        <h1 className="text-4xl font-bold text-danger-red">404</h1>
+                        <p className="text-lg text-text-dark mt-2">Página não encontrada.</p>
+                        {/* Redirecionamento pode ser melhorado com useNavigate ou Link */}
+                        <a href="/dashboard" className="mt-4 text-primary-blue hover:underline">Voltar para o Dashboard</a>
+                    </div>
+                } />
+
+            </Routes>
+        </AuthProvider>
     </Router>
   );
 }
